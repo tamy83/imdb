@@ -1,9 +1,18 @@
 # Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
-one:
+bryancranstononbreakingbad:
+  id: 1
   person_id: 1
   work_id: 1
-
-two:
+bryancranstononargo:
+  id: 2 
   person_id: 1
+  work_id: 3
+aaronpaulonbreakingbad:
+  id: 3
+  person_id: 2
   work_id: 1
+aaronpaulonneedofspeed:
+  id: 4
+  person_id: 2
+  work_id: 4

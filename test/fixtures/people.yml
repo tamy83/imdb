@@ -4,8 +4,15 @@
 # model remove the '{}' from the fixture names and add the columns immediately
 # below each fixture, per the syntax in the comments below
 #
-#one: {}
-# column: value
-#
-#two: {}
-#  column: value
+bryancranston:
+  id: 1
+  name: "Bryan Cranston"
+  photo_url: "https://www.imdb.com/name/nm0186505/mediaviewer/rm1640347136?ref_=nm_ov_ph"
+  profile_url: "https://www.imdb.com/name/nm0186505"
+  birthdate: "1956-03-07"
+aaronpaul:
+  id: 2
+  name: "Aaron Paul"
+  photo_url: "https://www.imdb.com/name/nm0666739/mediaviewer/rm1237559552?ref_=nm_ov_ph"
+  profile_url: "https://www.imdb.com/name/nm0666739"
+  birthdate: "1979-08-27"

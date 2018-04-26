@@ -4,8 +4,30 @@
 # model remove the '{}' from the fixture names and add the columns immediately
 # below each fixture, per the syntax in the comments below
 #
-#one: {}
-# column: value
+breakingbad:
+  id: 1
+  title: "Breaking Bad"
+  url: "https://www.imdb.com/title/tt0903747"
+  rating: 9.5
+  category: 1
 #
-#two: {}
-#  column: value
+pulpfiction:
+  id: 2
+  title: "Pulp Fiction"
+  url: "https://www.imdb.com/title/tt0110912"
+  rating: 8.9
+  category: 0
+
+argo:
+  id: 3
+  title: "Argo"
+  url: "https://www.imdb.com/title/tt1024648"
+  rating: 7.7
+  category: 0
+
+needforspeed:
+  id: 4
+  title: "Need for Speed"
+  url: "https://www.imdb.com/title/tt2369135"
+  rating: 6.5
+  category: 0
