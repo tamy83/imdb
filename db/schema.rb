@@ -11,7 +11,21 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180425214016) do
+ActiveRecord::Schema.define(version: 20180426062416) do
+
+  create_table "crew_members", force: :cascade do |t|
+    t.integer  "person_id",  limit: 4
+    t.integer  "work_id",    limit: 4
+    t.datetime "created_at",           null: false
+    t.datetime "updated_at",           null: false
+  end
+
+  add_index "crew_members", ["person_id", "work_id"], name: "index_crew_members_on_person_id_and_work_id", unique: true, using: :btree
+
+  create_table "crew_members_roles", id: false, force: :cascade do |t|
+    t.integer "crew_member_id", limit: 4
+    t.integer "role_id",        limit: 4
+  end
 
   create_table "people", force: :cascade do |t|
     t.string   "name",        limit: 255, null: false

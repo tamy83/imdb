@@ -1,9 +1,8 @@
 class CrewMember < ActiveRecord::Base
 
-  include Person
-
+  belongs_to :person
   belongs_to :work
-  has_many :roles
+  has_many :crew_members_roles
+  has_many :roles, through: :crew_members_roles
 
-# role_ranking???
 end
