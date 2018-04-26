@@ -32,8 +32,6 @@ gem 'sdoc', '~> 0.4.0', group: :doc
 # Use Capistrano for deployment
 # gem 'capistrano-rails', group: :development
 
-gem 'mysql2'
-
 group :development, :test do
   # Call 'byebug' anywhere in the code to stop execution and get a debugger console
   gem 'byebug'
@@ -45,3 +43,6 @@ group :development, :test do
   gem 'spring'
 end
 
+
+# Added at 2018-04-25 17:24:59 -0400 by yensontam:
+gem "mysql2", "~> 0.3.18"
