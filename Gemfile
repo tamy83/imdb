@@ -46,3 +46,5 @@ end
 
 # Added at 2018-04-25 17:24:59 -0400 by yensontam:
 gem "mysql2", "~> 0.3.18"
+
+gem "nokogiri"
