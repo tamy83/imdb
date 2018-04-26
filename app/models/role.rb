@@ -1,7 +1,7 @@
-class Person < ActiveRecord::Base
+class Role < ActiveRecord::Base
 
   validates :name, presence: true
 
-  attr_accessor :name
+#  attr_accessor :name
 
 end
