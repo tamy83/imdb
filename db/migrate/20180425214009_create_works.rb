@@ -4,7 +4,7 @@ class CreateWorks < ActiveRecord::Migration
       t.string :title, null: false
       t.string :url
       t.decimal :rating
-      t.integer :type, null: false
+      t.integer :category, null: false, default: 0
       t.timestamps null: false
     end
   end

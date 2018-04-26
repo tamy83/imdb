@@ -28,13 +28,15 @@ ActiveRecord::Schema.define(version: 20180425214016) do
     t.datetime "updated_at",             null: false
   end
 
+  add_index "roles", ["name"], name: "index_roles_on_name", unique: true, using: :btree
+
   create_table "works", force: :cascade do |t|
-    t.string   "title",      limit: 255,                null: false
+    t.string   "title",      limit: 255,                            null: false
     t.string   "url",        limit: 255
     t.decimal  "rating",                 precision: 10
-    t.integer  "type",       limit: 4,                  null: false
-    t.datetime "created_at",                            null: false
-    t.datetime "updated_at",                            null: false
+    t.integer  "category",   limit: 4,                  default: 0, null: false
+    t.datetime "created_at",                                        null: false
+    t.datetime "updated_at",                                        null: false
   end
 
 end
