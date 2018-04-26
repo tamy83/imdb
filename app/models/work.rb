@@ -3,15 +3,10 @@ class Work < ActiveRecord::Base
 
   enum type: [ :movie, :tv_show ]
   
+  attr_accessor :title, :url, :rating
+  
   validates :title, presence: true
-  validates :rating, numericality: { only_float: true }
+  validates :rating, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 10 }
   validates :url, format: URI::regexp(%w(http https))
   
-  def initialize(title, url, rating, type)
-    @title = title
-    @url = url
-    @rating = rating
-    @type = type
-  end
-
 end
