@@ -9,25 +9,25 @@ class WorkTest < ActiveSupport::TestCase
   test "invalid without title" do
     work = Work.new(url: "http://www.imdb.com/title/tt0473075/", rating: 6.6, category: Work.categories[:movie])
     refute work.valid?, 'work missing title'
-    assert_not_nil work.errors[:title]
+    refute_empty work.errors[:title]
   end
 
   test "invalid url" do
     work = Work.new(title: "Prince of Persia: The Sands of Time", url: "www.imdb.com/title/tt0473075/", rating: 6.6, category: Work.categories[:movie])
     refute work.valid?, 'work invalid url'
-    assert_not_nil work.errors[:url]
+    refute_empty work.errors[:url]
   end
 
   test "invalid rating greater than 10" do
     work = Work.new(title: "Prince of Persia: The Sands of Time", url: "http://www.imdb.com/title/tt0473075/", rating: 11, category: Work.categories[:movie])
     refute work.valid?, 'work rating greater than 10'
-    assert_not_nil work.errors[:rating]
+    refute_empty work.errors[:rating]
   end
 
   test "invalid rating less than 0" do
     work = Work.new(title: "Prince of Persia: The Sands of Time", url: "http://www.imdb.com/title/tt0473075/", rating: -5, category: Work.categories[:movie])
     refute work.valid?, 'work rating less than 0'
-    assert_not_nil work.errors[:rating]
+    refute_empty work.errors[:rating]
   end
 
 end
