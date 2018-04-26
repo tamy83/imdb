@@ -1,6 +1,6 @@
 class Person < ActiveRecord::Base
 
-  has_many :crew_members
+  has_many :crew_members, dependent: :destroy
   has_many :works, through: :crew_members
   has_many :roles, through: :crew_members
 
