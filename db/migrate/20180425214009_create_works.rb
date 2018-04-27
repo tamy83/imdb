@@ -7,5 +7,6 @@ class CreateWorks < ActiveRecord::Migration
       t.integer :category, null: false, default: 0
       t.timestamps null: false
     end
+    add_index :works, :url, unique: true
   end
 end

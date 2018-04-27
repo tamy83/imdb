@@ -39,6 +39,8 @@ ActiveRecord::Schema.define(version: 20180426062416) do
     t.datetime "updated_at",              null: false
   end
 
+  add_index "people", ["profile_url"], name: "index_people_on_profile_url", unique: true, using: :btree
+
   create_table "roles", force: :cascade do |t|
     t.string   "name",       limit: 255, null: false
     t.datetime "created_at",             null: false
@@ -55,6 +57,8 @@ ActiveRecord::Schema.define(version: 20180426062416) do
     t.datetime "created_at",                                        null: false
     t.datetime "updated_at",                                        null: false
   end
+
+  add_index "works", ["url"], name: "index_works_on_url", unique: true, using: :btree
 
   add_foreign_key "crew_members_roles", "crew_members", on_delete: :cascade
   add_foreign_key "crew_members_roles", "roles", on_delete: :cascade

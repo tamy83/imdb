@@ -7,5 +7,6 @@ class CreatePeople < ActiveRecord::Migration
       t.date  :birthdate
       t.timestamps null: false
     end
+    add_index :people, :profile_url, unique: true
   end
 end
