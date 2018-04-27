@@ -60,7 +60,7 @@ class Imdb
                 person = Person.find_or_initialize_by(profile_url:"#{DOMAIN}#{data[:profile_url]}")
                 person.name = data[:name]
                 person.photo_url = data[:photo_url]
-                person.birthdate = "#{mm}-#{dd}-0000".to_date
+                person.birthdate = "#{dd}-#{mm}-0000".to_date
                 if data[:work_title] && data[:work_url]
                   work = Work.find_or_create_by(title: data[:work_title], url: "#{DOMAIN}#{data[:work_url]}")
                   person.works.push(work) unless person.works.include? work
