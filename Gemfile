@@ -48,3 +48,4 @@ end
 gem "mysql2", "~> 0.3.18"
 
 gem "nokogiri"
+gem 'concurrent-ruby', require: 'concurrent'
