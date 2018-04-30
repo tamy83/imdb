@@ -17,10 +17,4 @@ class PersonTest < ActiveSupport::TestCase
     refute person.valid?
     refute_empty person.errors[:photo_url]
   end
-
-  test "invalid profile_url" do
-    person = Person.new(name: "Gemma Arterton", photo_url: "https://images-na.ssl-images-amazon.com/images/M/MV5BOTAwNTMwMzE5OF5BMl5BanBnXkFtZTgwMjYwNzI2MjE@._V1_UX140_CR0,0,140,209_AL_.jpg", profile_url: "www.imdb.com/nm2605345t", birthdate: Date.today)
-    refute person.valid?
-    refute_empty person.errors[:profile_url]
-  end
 end

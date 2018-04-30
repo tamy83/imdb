@@ -6,7 +6,8 @@ class Person < ActiveRecord::Base
 
   validates :name, presence: true
   validates :photo_url, format: URI::regexp(%w(http https)), allow_nil: true
-  validates :profile_url, format: URI::regexp(%w(http https)), allow_nil: true
+  # store relative path only
+#  validates :profile_url, format: URI::regexp(%w(http https)), allow_nil: true
 
   #todo: add column known_for_ranking, comma delimited string of work_ids that corresponds users known for works
 

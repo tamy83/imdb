@@ -50,12 +50,12 @@ ActiveRecord::Schema.define(version: 20180426062416) do
   add_index "roles", ["name"], name: "index_roles_on_name", unique: true, using: :btree
 
   create_table "works", force: :cascade do |t|
-    t.string   "title",      limit: 255,                            null: false
+    t.string   "title",      limit: 255,                                     null: false
     t.string   "url",        limit: 255
-    t.decimal  "rating",                 precision: 10
-    t.integer  "category",   limit: 4,                  default: 0, null: false
-    t.datetime "created_at",                                        null: false
-    t.datetime "updated_at",                                        null: false
+    t.decimal  "rating",                 precision: 4, scale: 2
+    t.integer  "category",   limit: 4,                           default: 0, null: false
+    t.datetime "created_at",                                                 null: false
+    t.datetime "updated_at",                                                 null: false
   end
 
   add_index "works", ["url"], name: "index_works_on_url", unique: true, using: :btree
