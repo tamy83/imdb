@@ -10,8 +10,7 @@ class Imdb
   WORK_THREADS_COUNT = 30
   DB_THREADS_COUNT = 1
   
-  # amount of work obj to import at once
-  WORK_BATCH_SIZE = 1000
+  BATCH_SIZE = 1000
 
   @@errors = []
   def self.run_scrape_task
@@ -51,17 +50,10 @@ class Imdb
     @@people_pool.wait_for_termination
     @@work_pool.shutdown
     @@work_pool.wait_for_termination
-    groups = @@works.size / WORK_BATCH_SIZE
-    remainder = @@works.size % WORK_BATCH_SIZE
-    groups.times { |i|
-      self.queue_mass_import_of_works(@@works.values[WORK_BATCH_SIZE*i,WORK_BATCH_SIZE])
-    }
-    self.queue_mass_import_of_works(@@works.values[WORK_BATCH_SIZE*groups,remainder+1])
-    @@db_pool.post do    
-      self.create_associations(@@people)
-    end
+    self.queue_mass_import_of_works(@@works.values)
     @@db_pool.shutdown
     @@db_pool.wait_for_termination
+    self.create_associations(@@people)
     population = 0
     @@people.each { |key, array|
       Rails.logger.debug "date: #{key.to_s} size: #{array.size}"
@@ -72,6 +64,9 @@ class Imdb
       works: #{@@works.keys.size},
       people_imported: #{Person.all.count} missed: #{population-Person.all.count},
       works_imported: #{Work.all.count} missed: #{@@works.keys.size-Work.all.count}
+      crew_members_created: #{CrewMember.all.count}
+      roles_created: #{Role.all.count}
+      crew_members_roles_created: #{CrewMembersRole.all.count}
       "
     self.dump_errors_to_logfile 
   end
@@ -92,7 +87,7 @@ class Imdb
   def self.queue_mass_import_of_people(people)
     @@db_pool.post do
       columns = [:name, :photo_url, :profile_url, :birthdate]
-      Person.import(columns, people)
+      Person.import(columns, people, {batch_size: BATCH_SIZE})
     end
   end
 
@@ -100,7 +95,7 @@ class Imdb
     @@db_pool.post do
       begin
         columns = [:title, :url, :category, :rating]
-        Work.import(columns, works)
+        Work.import(columns, works, {batch_size: BATCH_SIZE})
       rescue => e
         self.log("ERROR: failed work import works: #{works}, size: #{works.size}, msg: #{e.message}, #{e.backtrace.join("\n")}")
       end
@@ -163,29 +158,32 @@ class Imdb
   end
  
   def self.create_associations(people)
-    people.each { |key, array|
-      array.each { |person|
-        if person[:work_url]
-          person_obj = Person.find_by(profile_url: person[:profile_url])
-          work = Work.find_by(url: person[:work_url])
+    CrewMember.transaction do
+      people.each { |key, array|
+        array.each { |person|
+          if person[:work_url]
+            person_obj = Person.find_by(profile_url: person[:profile_url])
+            work = Work.find_by(url: person[:work_url])
 
-          unless person_obj and work
-            self.log("ERROR: unable to create crew_member for person: #{person}, p_obj.nil?: #{person_obj.nil?}, work_obj.nil? #{work.nil?}")
-            next
-          end
-          unless person_obj.works.include? work
-            crew_member = CrewMember.create(person: person_obj, work: work)
-            if person[:role]
-              role = Role.find_or_create_by(name: person[:role])
-              crew_member.roles.push(role)
-              crew_member.save
+            unless person_obj and work
+              self.log("ERROR: unable to create crew_member for person: #{person}, p_obj.nil?: #{person_obj.nil?}, work_obj.nil? #{work.nil?}")
+              next
             end
+            unless person_obj.works.include? work
+              crew_member = CrewMember.create(person: person_obj, work: work)
+              if person[:role]
+                role = Role.find_or_create_by(name: person[:role])
+                crew_member.roles.push(role)
+                crew_member.save
+                self.log("ERROR: crew_member.errors #{crew_member.errors.full_messages}") unless crew_member.errors.empty?
+              end
+            end
+            person_obj.set_most_known_work(work)
+            self.log("ERROR: saving person #{person_obj.errors.full_messages}") unless person_obj.errors.empty?
           end
-          person_obj.set_most_known_work(work)
-          person_obj.save
-        end
+        }
       }
-    }
+    end
   end
  
   def self.process_person(node)

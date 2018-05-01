@@ -41,6 +41,6 @@ class Person < ActiveRecord::Base
   end
 
   def work_rankings_as_array
-    return work_rankings.split(',')
+    return (work_rankings) ? work_rankings.split(',') : []
   end
 end
