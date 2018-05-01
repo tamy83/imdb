@@ -11,7 +11,7 @@ class Imdb
   DB_THREADS_COUNT = 1
   
   # amount of work obj to import at once
-  WORK_BATCH_SIZE = 100
+  WORK_BATCH_SIZE = 1000
 
   @@errors = []
   def self.run_scrape_task
@@ -181,8 +181,8 @@ class Imdb
               crew_member.save
             end
           end
-          # write ranking and then save
-          #person.save
+          person_obj.set_most_known_work(work)
+          person_obj.save
         end
       }
     }
@@ -209,7 +209,7 @@ class Imdb
 
   def self.scrape_work_page(data)
     Rails.logger.debug "ytam on work page: #{data[:url]}"
-    return if data[:url].nil?
+    return nil if data[:url].nil?
     begin
       doc = Nokogiri::HTML(open("#{DOMAIN}#{data[:url]}", :ssl_verify_mode => OpenSSL::SSL::VERIFY_NONE))
       title = doc.xpath('//*[@id="title-overview-widget"]/div[2]/div[2]/div/div[2]/div[2]/h1').text
@@ -234,19 +234,11 @@ class Imdb
       return {title: title, url:data[:url], category: category, rating: rating, credits: credits}
     rescue => e
       self.log("ERROR: #{e.message} for #{data[:url]}, title: #{data[:title]}, stacktrace: #{e.backtrace.join("\n")}")
+      return nil
     end
   end
 
   def self.save_work(data)
     Work.create(title: data[:title], url: data[:url], rating: data[:rating], category: data[:category])
-=begin
-    role = data[:category] ? 'Creator' : 'Director'
-    credits.each { |credit|
-      p = Person.find_or_create_by(profile_url: credit)
-      crew_member = CrewMember.find_or_create_by(person: p, work: work)
-      crew_member.roles.push(Role.find_or_create_by(name: role))
-      crew_member.save
-    }
-=end
   end
 end

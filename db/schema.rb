@@ -31,12 +31,13 @@ ActiveRecord::Schema.define(version: 20180426062416) do
   add_index "crew_members_roles", ["role_id"], name: "index_crew_members_roles_on_role_id", using: :btree
 
   create_table "people", force: :cascade do |t|
-    t.string   "name",        limit: 255, null: false
-    t.string   "photo_url",   limit: 255
-    t.string   "profile_url", limit: 255
+    t.string   "name",          limit: 255, null: false
+    t.string   "photo_url",     limit: 255
+    t.string   "profile_url",   limit: 255
+    t.string   "work_rankings", limit: 255
     t.date     "birthdate"
-    t.datetime "created_at",              null: false
-    t.datetime "updated_at",              null: false
+    t.datetime "created_at",                null: false
+    t.datetime "updated_at",                null: false
   end
 
   add_index "people", ["profile_url"], name: "index_people_on_profile_url", unique: true, using: :btree

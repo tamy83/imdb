@@ -8,8 +8,6 @@ class Work < ActiveRecord::Base
   
   validates :title, presence: true
   validates :rating, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 10 }, allow_nil: true
-  # store relative path only
-#  validates :url, format: URI::regexp(%w(http https)), allow_nil: true
 
   def director_or_creator
     role = category ? "Creator" : "Director"

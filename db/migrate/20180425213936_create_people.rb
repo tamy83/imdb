@@ -4,6 +4,7 @@ class CreatePeople < ActiveRecord::Migration
       t.string :name, null: false
       t.string :photo_url
       t.string :profile_url
+      t.string :work_rankings
       t.date  :birthdate
       t.timestamps null: false
     end
