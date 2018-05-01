@@ -6,12 +6,6 @@ class WorkTest < ActiveSupport::TestCase
     assert work.valid?
   end
 
-  test "invalid without title" do
-    work = Work.new(url: "/title/tt0473075/", rating: 6.6, category: Work.categories[:movie])
-    refute work.valid?, 'work missing title'
-    refute_empty work.errors[:title]
-  end
-
   test "invalid rating greater than 10" do
     work = Work.new(title: "Prince of Persia: The Sands of Time", url: "/title/tt0473075/", rating: 11, category: Work.categories[:movie])
     refute work.valid?, 'work rating greater than 10'
