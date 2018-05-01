@@ -75,7 +75,7 @@ class ImdbTest < ActiveSupport::TestCase
       work_title: "Deception",
       work_url: "/title/tt0800240/",
       role: "Actor",
-      birthdate: "0000-02-29".to_date
+      birthdate: "0004-02-29".to_date
     }
     last_result = {
       name: "Stephen Chalmers",
@@ -84,7 +84,7 @@ class ImdbTest < ActiveSupport::TestCase
       work_title: "Looking for Trouble",
       work_url: "/title/tt0017079/",
       role: "Writer",
-      birthdate: "0000-02-29".to_date
+      birthdate: "0004-02-29".to_date
     } 
     assert_equal(first_result, actual.first, "failed\nexpected first result: #{first_result}\nactual: #{actual.first}")
     assert_equal(last_result, actual.last, "failed\nexpected last result: #{last_result}\nactual: #{actual.last}")
@@ -98,7 +98,7 @@ class ImdbTest < ActiveSupport::TestCase
       work_title: "Les Misérables",
       work_url: "/title/tt1707386/",
       role: "Actor",
-      birthdate: "12-10-0000".to_date
+      birthdate: "12-10-0004".to_date
     }
    Imdb.save_person(person)
    p = Person.find_by(profile_url: "/name/nm0413168")

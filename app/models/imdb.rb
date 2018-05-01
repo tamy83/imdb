@@ -1,27 +1,29 @@
 class Imdb
   require 'open-uri'
-  require 'benchmark'
   require 'concurrent'
 
   DOMAIN = 'https://www.imdb.com'
   # 50 || 100
   RESULTS_PER_PAGE = 100
 
-  PEOPLE_THREADS_COUNT = 50
-  WORK_THREADS_COUNT = 10
+  PEOPLE_THREADS_COUNT = 20
+  WORK_THREADS_COUNT = 30
+  DB_THREADS_COUNT = 1
   
+  # amount of work obj to import at once
+  WORK_BATCH_SIZE = 1000
+
   @@errors = []
   def self.run_scrape_task
     @@errors = []
     @@people_pool = Concurrent::FixedThreadPool.new(PEOPLE_THREADS_COUNT)
     @@work_pool = Concurrent::FixedThreadPool.new(WORK_THREADS_COUNT)
-    time_start = Time.now
-    Rails.logger.debug "BEGIN IMDB SCRAPE TASK at #{time_start}"
-    #time = Benchmark.measure {
+    @@db_pool = Concurrent::FixedThreadPool.new(DB_THREADS_COUNT)
+    Rails.logger.debug "BEGIN IMDB SCRAPE TASK"
     monthdays = {
 #      '31': [ '01', '03', '05', '07', '08', '10', '12' ],
 #      '30': [ '04', '06', '09', '11' ],
-      '29': [ '02' ]
+      '01': [ '02' ]
     }
     @@people = {}
     @@works = {}
@@ -33,11 +35,12 @@ class Imdb
             begin
               url = "#{DOMAIN}/search/name?birth_monthday=#{mm}-#{dd}&count=#{RESULTS_PER_PAGE}"
               @@people["#{mm}-#{dd}"] = self.scrape_search_page(url)
-              self.log("ytam thread #{Thread.current.object_id} finished #{mm} #{dd}")
+              Rails.logger.debug("ytam thread #{Thread.current.object_id} finished #{mm} #{dd}")
               @@people["#{mm}-#{dd}"].each { |hash|
-                hash[:id] = self.save_person(hash).id
+                #self.scrape_work({title: hash[:work_title], url: hash[:work_url]})
                 self.post_to_work_pool({title: hash[:work_title], url: hash[:work_url]})
               }
+              self.queue_mass_import_of_people(@@people["#{mm}-#{dd}"])
             rescue => e
               self.log("ytam thread #{Thread.current.object_id} error #{e.message}\n\n#{e.backtrace.join("\n")}")
             end
@@ -45,29 +48,29 @@ class Imdb
         }
       }
     end
-=begin
-    works = Work.where(rating: nil)
-    works.each { |work|
-      begin
-#        self.scrape_work_page(work.url)
-      rescue => e
-        self.log("ytam ERROR: failed on #{work.url}\n#{e.message}\n\n#{e.backtrace.join("\n")}")
-      end
-    }
-=end
-    #}
-    time_end = Time.now
     @@people_pool.shutdown
     @@people_pool.wait_for_termination
     @@work_pool.shutdown
     @@work_pool.wait_for_termination
+    groups = @@works.size / WORK_BATCH_SIZE
+    remainder = @@works.size % WORK_BATCH_SIZE
+    groups.times { |i|
+      self.queue_mass_import_of_works(@@works.values[WORK_BATCH_SIZE*i,WORK_BATCH_SIZE])
+    }
+    self.queue_mass_import_of_works(@@works.values[WORK_BATCH_SIZE*groups,remainder+1])
+    @@db_pool.shutdown
+    @@db_pool.wait_for_termination
     population = 0
     @@people.each { |key, array|
       Rails.logger.debug "date: #{key.to_s} size: #{array.size}"
       population += array.size
     }
-    Rails.logger.debug "END IMDB SCRAPE TASK at #{time_end}, people: #{population}, works: #{@@works.keys.size}"
-    Rails.logger.debug "ytam elasped time #{time_end-time_start}"
+    Rails.logger.debug "END IMDB SCRAPE TASK
+      people: #{population},
+      works: #{@@works.keys.size},
+      people_imported: #{Person.all.count} missed: #{population-Person.all.count},
+      works_imported: #{Work.all.count} missed: #{@@works.keys.size-Work.all.count}
+      "
     self.dump_errors_to_logfile 
   end
 
@@ -84,20 +87,46 @@ class Imdb
     }
   end
 
+  def self.queue_mass_import_of_people(people)
+    @@db_pool.post do
+      columns = [:name, :photo_url, :profile_url, :birthdate]
+      Person.import(columns, people)
+    end
+  end
+
+  def self.queue_mass_import_of_works(works)
+    @@db_pool.post do
+      begin
+        columns = [:title, :url, :category, :rating]
+        Work.import(columns, works)
+      rescue => e
+        self.log("ERROR: failed work import size: #{works.size}, msg: #{e.message}, #{e.stacktrace}")
+      end
+    end
+  end
+
   def self.post_to_work_pool(data)
     @@work_pool.post do
       work = self.scrape_work_page(data)
-      if work
-        id = self.save_work(work)
-        work[:id] = id
-        @@works[:url] = work
-      end
-    end unless @@works[:url].nil?
+      @@works[data[:url]] = work if work
+    end if @@works[:url].nil?
+  end
+
+  def self.scrape_work(data)
+    if @@works[:url].nil?
+      work = self.scrape_work_page(data)
+      @@works[data[:url]] = work if work
+    end
   end
 
   def self.scrape_search_page(url)
     Rails.logger.debug "ytam thread: #{Thread.current.object_id} on page: #{url}"
-    doc = Nokogiri::HTML(open(url, :ssl_verify_mode => OpenSSL::SSL::VERIFY_NONE))
+    begin
+      doc = Nokogiri::HTML(open(url, :ssl_verify_mode => OpenSSL::SSL::VERIFY_NONE))
+    rescue => e
+      self.log("ERROR: #{e.message} for #{url}")
+      return
+    end
     mm, dd = url.match(/birth_monthday=(\d*)-(\d*)\&/).captures
     header_text = doc.xpath('//*[@id="main"]/div/h1').text
     result_mm, result_dd = header_text.match(/Birth Month Day of (.*)-(.*)/).captures
@@ -128,27 +157,6 @@ class Imdb
           results.concat(res) if res
         }
       end
-=begin
-      Role.transaction do
-        CrewMember.transaction do
-          Work.transaction do
-            Person.transaction do
-              doc.xpath('//*[@id="main"]/div/div[3]').children.each do |node|
-                if node.is_a?(Nokogiri::XML::Element)
-                  begin
-                    data = self.process_person(node)
-                    data[:birthdate] = "#{dd}-#{mm}-0000".to_date 
-                    self.save_person_hash(data)
-                  rescue => e
-                    self.log("ERROR: failed on #{node}\n#{data}\n#{e.message}\n\n#{e.backtrace.join("\n")}")
-                  end
-                end
-              end
-            end
-          end
-        end
-      end
-=end
     else
       self.log("ERROR: did not receive correct search result page for #{mm}-#{dd} #{url}")
     end
@@ -183,30 +191,28 @@ class Imdb
     work_section = node.xpath('./div/p/a').first
     if work_section
       work_title = work_section.text.strip!
-      work_url = work_section.attributes['href'].value
+      work_url = work_section.attributes['href'].value.split("?").first
       role = node.xpath('./div/p').text.split('|').first.strip! if node.xpath('./div/p').text.include? '|'
     end
     return {name: name,
       photo_url: photo_url,
-      profile_url: "#{profile_url}",
+      profile_url: profile_url,
       work_title: work_title,
-      work_url: "#{work_url}",
+      work_url: work_url,
       role: role
     }
   end
 
   def self.scrape_work_page(data)
-    Rails.logger.debug "ytam on page: #{data[:url]}"
-    doc = Nokogiri::HTML(open("#{DOMAIN}#{data[:url]}", :ssl_verify_mode => OpenSSL::SSL::VERIFY_NONE))
-    
+    Rails.logger.debug "ytam on work page: #{data[:url]}"
+    return if data[:url].nil?
+    begin
+      doc = Nokogiri::HTML(open("#{DOMAIN}#{data[:url]}", :ssl_verify_mode => OpenSSL::SSL::VERIFY_NONE))
     title = doc.xpath('//*[@id="title-overview-widget"]/div[2]/div[2]/div/div[2]/div[2]/h1').text
     title = doc.xpath('//*[@id="title-overview-widget"]/div[2]/div[2]/div/div/div[2]/h1').text if title.blank?
     title = title.gsub("\u00A0","").split("(").first
     title.strip!
-    unless title == data[:title]
-      self.log("ERROR: did not receive correct work page for #{data[:url]} #{title} #{data[:title]}")
-      return nil
-    end
+    self.log("WARN: received page for #{data[:url]}, title: #{title}, expected_title: #{data[:title]}") unless title == data[:title]
     # todo: .to_d was removed from rating, not necessary to convert
     rating = doc.xpath('//*[@id="title-overview-widget"]/div[2]/div[2]/div/div[1]/div[1]/div[1]/strong/span').children.text
     # different paths whether or not a trailer exists so search by class name
@@ -214,15 +220,20 @@ class Imdb
     #credits_node = doc.xpath('//*[@id="title-overview-widget"]/div[3]/div[2]/div/div[2]/span')
     all_credits_node = doc.xpath("//div[contains(@class, 'credit_summary_item')]") 
     dir_creator_node = all_credits_node.first.xpath('./span')
-    category = nil
+    category = (doc.xpath('//*[@id="main_bottom"]/div[1]/h2').text=='Episodes') ? 1 : 0
     credits = [] 
     dir_creator_node.each { |credit|
-      role = credit.attributes['itemprop'].value.capitalize!
-      category = (role == 'Creator') ? 1 : 0 
-      profile_url = credit.xpath('./a').first.attributes['href'].value.split('/?').first
-      credits.push("#{profile_url}")
+      if credit.attributes['itemprop'] 
+        #role = credit.attributes['itemprop'].value.capitalize!
+        #category = (role == 'Creator') ? 1 : 0 
+        profile_url = credit.xpath('./a').first.attributes['href'].value.split('/?').first
+        credits.push("#{profile_url}")
+      end
     }
-    return {title: title, url:data[:url], category: category, rating: rating, credits: credits}
+    return {title: data[:title], url:data[:url], category: category, rating: rating, credits: credits}
+    rescue => e
+      self.log("ERROR: #{e.message} for #{data[:url]}, title: #{data[:title]}, stacktrace: #{e.stacktrace}")
+    end
   end
 
   def self.save_work(data)
