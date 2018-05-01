@@ -9,13 +9,21 @@ class Person < ActiveRecord::Base
   validate :work_rankings_valid
 
   def self.find_by_birth_month_day_and_role(month, day, role)
+    role_obj = Role.find_by(name: role)
+    if role_obj.blank?
+      self.find_by_birth_month_day(month, day) 
+    else
+      Person.where('extract(month from birthdate) = ? AND extract(day from birthdate) = ?', month.to_i, day.to_i).select{|p| p.roles.include? role_obj}.map(&:to_h)
+    end
+  end
+ 
+  def self.find_by_birth_month_day(month, day)
     # todo: validate month and day
     Person.where('extract(month from birthdate) = ? AND extract(day from birthdate) = ?', month.to_i, day.to_i).map(&:to_h)
   end
 
   def to_h
-    most_known_work = !works.empty? ? works.first.to_h : {}
-    return { name: name, photoUrl: photo_url, profileUrl: profile_url, mostKnownWork: most_known_work }
+    return { name: name, photoUrl: photo_url, profileUrl: profile_url, mostKnownWork: most_known_work.to_h }
   end
 
   def profile_url

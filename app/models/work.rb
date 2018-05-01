@@ -9,24 +9,27 @@ class Work < ActiveRecord::Base
   
   validates :rating, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 10 }, allow_nil: true
 
-  def director_or_creator
-    role = category ? "Creator" : "Director"
-    #roles.filter(name: role)
+  def credits 
+    role = Role.find_by(name: credit_str)
+    crediters = CrewMembersRole.where(role: role, crew_member: self.crew_members)
+    retval = []
+    crediters.each { |c|
+      retval.push(c.crew_member.person.name)
+    }
+    retval
   end
   
   def to_h
-=begin
-mostKnownWork: 
-	{ title: "Prince of Persia: The Sands of Time", 
-	url: "http://www.imdb.com/title/tt0473075/", 
-	rating: 6.6, 
-	director: "Louis Leterrier" } 
-	},
-=end     
-    return { title: title, url: url, rating: rating }
+    retval = { title: title, url: url, rating: rating }
+    retval[credit_str.to_sym] = self.credits
+    return retval
   end
 
   def url
     "#{DOMAIN}#{self[:url]}"
-  end  
+  end
+
+  def credit_str
+    self.tv_show? ? "Creator" : "Director" 
+  end
 end
