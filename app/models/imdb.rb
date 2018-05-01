@@ -11,7 +11,7 @@ class Imdb
   DB_THREADS_COUNT = 1
   
   # amount of work obj to import at once
-  WORK_BATCH_SIZE = 1000
+  WORK_BATCH_SIZE = 100
 
   @@errors = []
   def self.run_scrape_task
@@ -37,7 +37,6 @@ class Imdb
               @@people["#{mm}-#{dd}"] = self.scrape_search_page(url)
               Rails.logger.debug("ytam thread #{Thread.current.object_id} finished #{mm} #{dd}")
               @@people["#{mm}-#{dd}"].each { |hash|
-                #self.scrape_work({title: hash[:work_title], url: hash[:work_url]})
                 self.post_to_work_pool({title: hash[:work_title], url: hash[:work_url]})
               }
               self.queue_mass_import_of_people(@@people["#{mm}-#{dd}"])
@@ -58,6 +57,9 @@ class Imdb
       self.queue_mass_import_of_works(@@works.values[WORK_BATCH_SIZE*i,WORK_BATCH_SIZE])
     }
     self.queue_mass_import_of_works(@@works.values[WORK_BATCH_SIZE*groups,remainder+1])
+    @@db_pool.post do    
+      self.create_associations(@@people)
+    end
     @@db_pool.shutdown
     @@db_pool.wait_for_termination
     population = 0
@@ -100,7 +102,7 @@ class Imdb
         columns = [:title, :url, :category, :rating]
         Work.import(columns, works)
       rescue => e
-        self.log("ERROR: failed work import size: #{works.size}, msg: #{e.message}, #{e.stacktrace}")
+        self.log("ERROR: failed work import works: #{works}, size: #{works.size}, msg: #{e.message}, #{e.backtrace.join("\n")}")
       end
     end
   end
@@ -110,13 +112,6 @@ class Imdb
       work = self.scrape_work_page(data)
       @@works[data[:url]] = work if work
     end if @@works[:url].nil?
-  end
-
-  def self.scrape_work(data)
-    if @@works[:url].nil?
-      work = self.scrape_work_page(data)
-      @@works[data[:url]] = work if work
-    end
   end
 
   def self.scrape_search_page(url)
@@ -167,22 +162,31 @@ class Imdb
     Person.create(name: data[:name], profile_url: data[:profile_url], photo_url: data[:photo_url], birthdate: data[:birthdate])
   end
  
-=begin
-  def self.create_crew_members()
-    if data[:work_title] && data[:work_url]
-      work = Work.find_or_create_by(title: data[:work_title], url: "#{data[:work_url]}")
-      unless person.works.include? work
-        crew_member = CrewMember.find_or_create_by(person: person, work: work)
-        if data[:role]
-          role = Role.find_or_create_by(name: data[:role])
-          crew_member.roles.push(role)
-          crew_member.save
+  def self.create_associations(people)
+    people.each { |key, array|
+      array.each { |person|
+        if person[:work_url]
+          person_obj = Person.find_by(profile_url: person[:profile_url])
+          work = Work.find_by(url: person[:work_url])
+
+          unless person_obj and work
+            self.log("ERROR: unable to create crew_member for person: #{person}, p_obj.nil?: #{person_obj.nil?}, work_obj.nil? #{work.nil?}")
+            next
+          end
+          unless person_obj.works.include? work
+            crew_member = CrewMember.create(person: person_obj, work: work)
+            if person[:role]
+              role = Role.find_or_create_by(name: person[:role])
+              crew_member.roles.push(role)
+              crew_member.save
+            end
+          end
+          # write ranking and then save
+          #person.save
         end
-      end
-    end
-    person.save
+      }
+    }
   end
-=end
  
   def self.process_person(node)
     name = node.xpath('./div/a/img').first.attributes['alt'].value
@@ -208,31 +212,28 @@ class Imdb
     return if data[:url].nil?
     begin
       doc = Nokogiri::HTML(open("#{DOMAIN}#{data[:url]}", :ssl_verify_mode => OpenSSL::SSL::VERIFY_NONE))
-    title = doc.xpath('//*[@id="title-overview-widget"]/div[2]/div[2]/div/div[2]/div[2]/h1').text
-    title = doc.xpath('//*[@id="title-overview-widget"]/div[2]/div[2]/div/div/div[2]/h1').text if title.blank?
-    title = title.gsub("\u00A0","").split("(").first
-    title.strip!
-    self.log("WARN: received page for #{data[:url]}, title: #{title}, expected_title: #{data[:title]}") unless title == data[:title]
-    # todo: .to_d was removed from rating, not necessary to convert
-    rating = doc.xpath('//*[@id="title-overview-widget"]/div[2]/div[2]/div/div[1]/div[1]/div[1]/strong/span').children.text
-    # different paths whether or not a trailer exists so search by class name
-    #credits_node = doc.xpath('//*[@id="title-overview-widget"]/div[3]/div[1]/div[2]/span')
-    #credits_node = doc.xpath('//*[@id="title-overview-widget"]/div[3]/div[2]/div/div[2]/span')
-    all_credits_node = doc.xpath("//div[contains(@class, 'credit_summary_item')]") 
-    dir_creator_node = all_credits_node.first.xpath('./span')
-    category = (doc.xpath('//*[@id="main_bottom"]/div[1]/h2').text=='Episodes') ? 1 : 0
-    credits = [] 
-    dir_creator_node.each { |credit|
-      if credit.attributes['itemprop'] 
-        #role = credit.attributes['itemprop'].value.capitalize!
-        #category = (role == 'Creator') ? 1 : 0 
-        profile_url = credit.xpath('./a').first.attributes['href'].value.split('/?').first
-        credits.push("#{profile_url}")
+      title = doc.xpath('//*[@id="title-overview-widget"]/div[2]/div[2]/div/div[2]/div[2]/h1').text
+      title = doc.xpath('//*[@id="title-overview-widget"]/div[2]/div[2]/div/div/div[2]/h1').text if title.blank?
+      title = title.gsub("\u00A0","").split("(").first
+      title.strip!
+      self.log("WARN: received page for #{data[:url]}, title: #{title}, expected_title: #{data[:title]}") unless title == data[:title]
+      # todo: .to_d was removed from rating, not necessary to convert
+      rating = doc.xpath('//*[@id="title-overview-widget"]/div[2]/div[2]/div/div[1]/div[1]/div[1]/strong/span').children.text
+      all_credits_node = doc.xpath("//div[contains(@class, 'credit_summary_item')]") 
+      category = (doc.xpath('//*[@id="main_bottom"]/div[1]/h2').text=='Episodes') ? 1 : 0
+      credits = [] 
+      if all_credits_node.first
+        dir_creator_node = all_credits_node.first.xpath('./span')
+        dir_creator_node.each { |credit|
+          if credit.attributes['itemprop'] 
+            profile_url = credit.xpath('./a').first.attributes['href'].value.split('/?').first
+            credits.push("#{profile_url}")
+          end
+        } if dir_creator_node
       end
-    }
-    return {title: data[:title], url:data[:url], category: category, rating: rating, credits: credits}
+      return {title: title, url:data[:url], category: category, rating: rating, credits: credits}
     rescue => e
-      self.log("ERROR: #{e.message} for #{data[:url]}, title: #{data[:title]}, stacktrace: #{e.stacktrace}")
+      self.log("ERROR: #{e.message} for #{data[:url]}, title: #{data[:title]}, stacktrace: #{e.backtrace.join("\n")}")
     end
   end
 

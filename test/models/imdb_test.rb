@@ -89,10 +89,10 @@ class ImdbTest < ActiveSupport::TestCase
     assert_equal(first_result, actual.first, "failed\nexpected first result: #{first_result}\nactual: #{actual.first}")
     assert_equal(last_result, actual.last, "failed\nexpected last result: #{last_result}\nactual: #{actual.last}")
     assert_equal(320, actual.size, "failed expected results size: 320, actual #{actual.size}")
- end
+  end
 
- test "test save person" do
-   person = { name: "Hugh Jackman",
+  test "test save person" do
+    person = { name: "Hugh Jackman",
       photo_url: "https://ia.media-imdb.com/images/M/MV5BNDExMzIzNjk3Nl5BMl5BanBnXkFtZTcwOTE4NDU5OA@@._V1_UX140_CR0,0,140,209_AL_.jpg",
       profile_url: "/name/nm0413168",
       work_title: "Les Misérables",
@@ -107,5 +107,26 @@ class ImdbTest < ActiveSupport::TestCase
     assert_equal(person[:profile_url], p.profile_url)
     assert_equal(person[:birthdate], p.birthdate)
     # todo: save crew member and test roles
- end
+  end
+
+  test "test create associations" do
+    person = { name: "Hugh Jackman",
+      photo_url: "https://ia.media-imdb.com/images/M/MV5BNDExMzIzNjk3Nl5BMl5BanBnXkFtZTcwOTE4NDU5OA@@._V1_UX140_CR0,0,140,209_AL_.jpg",
+      profile_url: "/name/nm0413168",
+      work_title: "Les Misérables",
+      work_url: "/title/tt1707386/",
+      role: "Actor",
+      birthdate: "12-10-0004".to_date
+    }
+    person_obj = Person.create(name: person[:name], profile_url: person[:profile_url])
+    work = Work.create(title: "Les Misérables", url: "/title/tt1707386/")
+    people = {}
+    people['10-12'] = [person] 
+    Imdb.create_associations(people)
+    crew_member = CrewMember.find_by(person: person_obj, work: work)
+    assert_not_nil(crew_member, "crew_member is nil")
+    role = crew_member.roles.first
+    assert_not_nil(role, "role is nil")
+    assert_equal(role.name, "Actor", "role name does not match expected: Actor, actual: #{role.name}")
+  end
 end
