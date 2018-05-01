@@ -1,10 +1,10 @@
 class Person < ActiveRecord::Base
 
+  DOMAIN = "https://www.imdb.com"
   has_many :crew_members, dependent: :destroy
   has_many :works, through: :crew_members
   has_many :roles, through: :crew_members
 
-  validates :name, presence: true
   validates :photo_url, format: URI::regexp(%w(http https)), allow_nil: true
   validate :work_rankings_valid
 
@@ -16,6 +16,10 @@ class Person < ActiveRecord::Base
   def to_h
     most_known_work = !works.empty? ? works.first.to_h : {}
     return { name: name, photoUrl: photo_url, profileUrl: profile_url, mostKnownWork: most_known_work }
+  end
+
+  def profile_url
+    "#{DOMAIN}#{self[:profile_url]}"
   end
 
   def work_rankings_valid

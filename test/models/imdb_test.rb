@@ -47,7 +47,7 @@ class ImdbTest < ActiveSupport::TestCase
     Imdb.save_work(work)
     w = Work.find_by(url: "/title/tt7780980/")
     assert_equal(work[:title], w.title)
-    assert_equal(work[:url], w.url)
+    assert_equal("#{Work::DOMAIN}#{work[:url]}", w.url)
     assert_equal("movie", w.category)
     assert_equal(nil, w.rating)
     # todo: save crew member and test credits
@@ -104,7 +104,7 @@ class ImdbTest < ActiveSupport::TestCase
    p = Person.find_by(profile_url: "/name/nm0413168")
     assert_equal(person[:name], p.name)
     assert_equal(person[:photo_url], p.photo_url)
-    assert_equal(person[:profile_url], p.profile_url)
+    assert_equal("#{Person::DOMAIN}#{person[:profile_url]}", p.profile_url)
     assert_equal(person[:birthdate], p.birthdate)
     # todo: save crew member and test roles
   end
@@ -118,15 +118,24 @@ class ImdbTest < ActiveSupport::TestCase
       role: "Actor",
       birthdate: "12-10-0004".to_date
     }
-    person_obj = Person.create(name: person[:name], profile_url: person[:profile_url])
-    work = Work.create(title: "Les Misérables", url: "/title/tt1707386/")
+    works = {
+      '/title/tt1707386/': {title: "Les Misérables",
+        url: "/title/tt1707386/",
+        rating: "7.6",
+        credits: ["/name/nm0413168"]
+        }
+    }
+    person_obj = Person.create(name: person[:name], profile_url: person[:profile_url], photo_url: person[:photo_url])
+    work_obj = Work.create(title: "Les Misérables", url: "/title/tt1707386/")
     people = {}
     people['10-12'] = [person] 
-    Imdb.create_associations(people)
-    crew_member = CrewMember.find_by(person: person_obj, work: work)
+    Imdb.create_associations(people,works)
+    crew_member = CrewMember.find_by(person: person_obj, work: work_obj)
     assert_not_nil(crew_member, "crew_member is nil")
-    role = crew_member.roles.first
-    assert_not_nil(role, "role is nil")
-    assert_equal(role.name, "Actor", "role name does not match expected: Actor, actual: #{role.name}")
+    assert_not_nil(crew_member.roles, "roles not nil")
+    actor = Role.find_by(name: "Actor")
+    director = Role.find_by(name: "Director")
+    assert_includes(crew_member.roles, actor, "actor not included in roles, actual: #{crew_member.roles}")
+    assert_includes(crew_member.roles, director, "director not included in roles, actual: #{crew_member.roles}")
   end
 end

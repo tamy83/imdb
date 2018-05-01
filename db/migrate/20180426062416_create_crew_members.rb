@@ -1,8 +1,8 @@
 class CreateCrewMembers < ActiveRecord::Migration
   def change
     create_table :crew_members do |t|
-      t.references :person
-      t.references :work
+      t.references :person, null: false
+      t.references :work, null: false
       t.timestamps null: false
     end
 

@@ -1,9 +1,9 @@
 class CreatePeople < ActiveRecord::Migration
   def change
     create_table :people do |t|
-      t.string :name, null: false
+      t.string :name
       t.string :photo_url
-      t.string :profile_url
+      t.string :profile_url, null: false
       t.string :work_rankings
       t.date  :birthdate
       t.timestamps null: false

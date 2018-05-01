@@ -20,9 +20,9 @@ class Imdb
     @@db_pool = Concurrent::FixedThreadPool.new(DB_THREADS_COUNT)
     Rails.logger.debug "BEGIN IMDB SCRAPE TASK"
     monthdays = {
-#      '31': [ '01', '03', '05', '07', '08', '10', '12' ],
-#      '30': [ '04', '06', '09', '11' ],
-      '01': [ '02' ]
+      '31': [ '01', '03', '05', '07', '08', '10', '12' ],
+      '30': [ '04', '06', '09', '11' ],
+      '29': [ '02' ]
     }
     @@people = {}
     @@works = {}
@@ -34,13 +34,13 @@ class Imdb
             begin
               url = "#{DOMAIN}/search/name?birth_monthday=#{mm}-#{dd}&count=#{RESULTS_PER_PAGE}"
               @@people["#{mm}-#{dd}"] = self.scrape_search_page(url)
-              Rails.logger.debug("ytam thread #{Thread.current.object_id} finished #{mm} #{dd}")
+              Rails.logger.debug("thread #{Thread.current.object_id} finished #{mm} #{dd}")
               @@people["#{mm}-#{dd}"].each { |hash|
                 self.post_to_work_pool({title: hash[:work_title], url: hash[:work_url]})
               }
               self.queue_mass_import_of_people(@@people["#{mm}-#{dd}"])
             rescue => e
-              self.log("ytam thread #{Thread.current.object_id} error #{e.message}\n\n#{e.backtrace.join("\n")}")
+              self.log("thread #{Thread.current.object_id} error #{e.message}\n\n#{e.backtrace.join("\n")}")
             end
           end
         }
@@ -53,7 +53,7 @@ class Imdb
     self.queue_mass_import_of_works(@@works.values)
     @@db_pool.shutdown
     @@db_pool.wait_for_termination
-    self.create_associations(@@people)
+    self.create_associations(@@people,@@works)
     population = 0
     @@people.each { |key, array|
       Rails.logger.debug "date: #{key.to_s} size: #{array.size}"
@@ -87,7 +87,7 @@ class Imdb
   def self.queue_mass_import_of_people(people)
     @@db_pool.post do
       columns = [:name, :photo_url, :profile_url, :birthdate]
-      Person.import(columns, people, {batch_size: BATCH_SIZE})
+      Person.import(columns, people, {batch_size: BATCH_SIZE, on_duplicated_key_update: [:name, :photo_url, :birthdate]})
     end
   end
 
@@ -95,7 +95,7 @@ class Imdb
     @@db_pool.post do
       begin
         columns = [:title, :url, :category, :rating]
-        Work.import(columns, works, {batch_size: BATCH_SIZE})
+        Work.import(columns, works, {batch_size: BATCH_SIZE, on_duplicated_key_update: [:title, :category, :rating]})
       rescue => e
         self.log("ERROR: failed work import works: #{works}, size: #{works.size}, msg: #{e.message}, #{e.backtrace.join("\n")}")
       end
@@ -110,7 +110,7 @@ class Imdb
   end
 
   def self.scrape_search_page(url)
-    Rails.logger.debug "ytam thread: #{Thread.current.object_id} on page: #{url}"
+    Rails.logger.debug "thread: #{Thread.current.object_id} on page: #{url}"
     begin
       doc = Nokogiri::HTML(open(url, :ssl_verify_mode => OpenSSL::SSL::VERIFY_NONE))
     rescue => e
@@ -157,7 +157,7 @@ class Imdb
     Person.create(name: data[:name], profile_url: data[:profile_url], photo_url: data[:photo_url], birthdate: data[:birthdate])
   end
  
-  def self.create_associations(people)
+  def self.create_associations(people,works)
     CrewMember.transaction do
       people.each { |key, array|
         array.each { |person|
@@ -165,23 +165,43 @@ class Imdb
             person_obj = Person.find_by(profile_url: person[:profile_url])
             work = Work.find_by(url: person[:work_url])
 
-            unless person_obj and work
+            if person_obj.nil? or work.nil?
               self.log("ERROR: unable to create crew_member for person: #{person}, p_obj.nil?: #{person_obj.nil?}, work_obj.nil? #{work.nil?}")
               next
             end
-            unless person_obj.works.include? work
-              crew_member = CrewMember.create(person: person_obj, work: work)
-              if person[:role]
-                role = Role.find_or_create_by(name: person[:role])
-                crew_member.roles.push(role)
-                crew_member.save
-                self.log("ERROR: crew_member.errors #{crew_member.errors.full_messages}") unless crew_member.errors.empty?
-              end
+            crew_member = CrewMember.find_or_create_by(person: person_obj, work: work)
+            if person[:role]
+              role = Role.find_or_create_by(name: person[:role])
+              crew_member.roles.push(role)
+              crew_member.save
+              self.log("ERROR: crew_member.errors #{crew_member.errors.full_messages}") unless crew_member.errors.empty?
             end
             person_obj.set_most_known_work(work)
             self.log("ERROR: saving person #{person_obj.errors.full_messages}") unless person_obj.errors.empty?
           end
         }
+      }
+    end
+    CrewMember.transaction do
+      works.each { |url,data|
+        unless data[:credits].blank?
+          work_obj = Work.find_by(url: url)
+          if work_obj
+            data[:credits].each { |person|
+              person_obj = Person.find_or_create_by(profile_url: person)
+              if person_obj and work_obj
+                if person_obj.id.nil?
+                  person_obj.save
+                end
+                role_name = (data[:category]==1) ? "Creator" : "Director"
+                role = Role.find_or_create_by(name: role_name)
+                crew_member = CrewMember.find_or_create_by(person: person_obj, work: work_obj)
+                crew_member.roles.push(role)
+                crew_member.save
+              end
+            }
+          end
+        end
       }
     end
   end
@@ -206,7 +226,7 @@ class Imdb
   end
 
   def self.scrape_work_page(data)
-    Rails.logger.debug "ytam on work page: #{data[:url]}"
+    Rails.logger.debug "on work page: #{data[:url]}"
     return nil if data[:url].nil?
     begin
       doc = Nokogiri::HTML(open("#{DOMAIN}#{data[:url]}", :ssl_verify_mode => OpenSSL::SSL::VERIFY_NONE))
@@ -215,7 +235,6 @@ class Imdb
       title = title.gsub("\u00A0","").split("(").first
       title.strip!
       self.log("WARN: received page for #{data[:url]}, title: #{title}, expected_title: #{data[:title]}") unless title == data[:title]
-      # todo: .to_d was removed from rating, not necessary to convert
       rating = doc.xpath('//*[@id="title-overview-widget"]/div[2]/div[2]/div/div[1]/div[1]/div[1]/strong/span').children.text
       all_credits_node = doc.xpath("//div[contains(@class, 'credit_summary_item')]") 
       category = (doc.xpath('//*[@id="main_bottom"]/div[1]/h2').text=='Episodes') ? 1 : 0

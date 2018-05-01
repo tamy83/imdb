@@ -1,12 +1,12 @@
 class Work < ActiveRecord::Base
 
+  DOMAIN = "https://www.imdb.com"
   has_many :crew_members, dependent: :destroy
   has_many :people, through: :crew_members
   has_many :roles, through: :crew_members
 
   enum category: [ :movie, :tv_show ]
   
-  validates :title, presence: true
   validates :rating, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 10 }, allow_nil: true
 
   def director_or_creator
@@ -22,8 +22,11 @@ mostKnownWork:
 	rating: 6.6, 
 	director: "Louis Leterrier" } 
 	},
-=end
-     
+=end     
     return { title: title, url: url, rating: rating }
+  end
+
+  def url
+    "#{DOMAIN}#{self[:url]}"
   end  
 end
