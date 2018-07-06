@@ -1,6 +1,7 @@
 == README
 
-This is a code assignment given to me by a company.  
+This is a code assignment given to me by a company:  
+
 Create an API endpoint that, given a month & day, will return actors & actresses who are born on that date. There exists an IMDB page that should be be scraped to glean the necessary info: http://www.imdb.com/search/name?birth_monthday=02-02.
 
 The endpoint should return data in the following format:
