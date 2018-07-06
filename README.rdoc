@@ -1,28 +1,15 @@
 == README
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
+This is a code assignment given to me by a company.  
+Create an API endpoint that, given a month & day, will return actors & actresses who are born on that date. There exists an IMDB page that should be be scraped to glean the necessary info: http://www.imdb.com/search/name?birth_monthday=02-02.
 
-Things you may want to cover:
-
-* Ruby version
-
-* System dependencies
-
-* Configuration
-
-* Database creation
-
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
+The endpoint should return data in the following format:
 
 
-Please feel free to use a different markup language if you do not plan to run
-<tt>rake doc:app</tt>.
+{ people: [ { name: "Gemma Arterton", photoUrl: "https://images-na.ssl-images-amazon.com/images/M/MV5BOTAwNTMwMzE5OF5BMl5BanBnXkFtZTgwMjYwNzI2MjE@._V1_UX140_CR0,0,140,209_AL_.jpg", profileUrl: "http://www.imdb.com/name/nm2605345", mostKnownWork: { title: "Prince of Persia: The Sands of Time", url: "http://www.imdb.com/title/tt0473075/", rating: 6.6, director: "Louis Leterrier" } }, ... ] } 
+
+Additional notes: 
+* mostKnownWork is defined as the work that appears beneath the actors name on the search results listing 
+* you will need to fetch an additional page from IMDB to know the rating and director for the most known work.
+
+
